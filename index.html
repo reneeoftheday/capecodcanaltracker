@@ -364,11 +364,6 @@ function initMap(){
   L.marker([PIN.lat,PIN.lon],{icon:L.divIcon({html:pinSvg,className:'',iconSize:[18,24],iconAnchor:[9,24]})}).addTo(map).bindTooltip('Your pin');
 
 
-  L.marker([41.7444, -70.6089], {icon: camIcon('Bourne Bridge')})
-    .addTo(map)
-    .bindTooltip('Click to open Bourne Bridge traffic camera', {direction:'top'})
-    .on('click', () => window.open('https://511ma.org/map#camera', '_blank'));
-
 }
 function updateMarkers(){
   const nearest=findNearest();nearestMmsi=nearest?.vessel?.mmsi;
