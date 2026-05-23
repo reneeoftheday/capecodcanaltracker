@@ -18,7 +18,6 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:#f4f6f9;color:#1
 .status-pill{display:flex;align-items:center;gap:5px;font-size:11px;color:#8892a4;background:#f4f6f9;border:1px solid #e2e6ef;border-radius:99px;padding:3px 10px}
 .dot{width:6px;height:6px;border-radius:50%;background:#c8cdd8;flex-shrink:0}
 .dot.live{background:#22c55e;animation:pulse 2s infinite}
-.dot.demo{background:#f59e0b}
 .dot.connecting{background:#3b82f6;animation:pulse 1s infinite}
 .dot.error{background:#ef4444}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
@@ -62,41 +61,14 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:#f4f6f9;color:#1
 .badge-sail{background:#ede9fe;color:#5b21b6}.badge-other{background:#f1f5f9;color:#475569}
 .badge-speed{background:#f4f6f9;color:#8892a4;border:1px solid #e2e6ef}.badge-nearest{background:#dbeafe;color:#1e40af}
 .empty{font-size:12px;color:#b0b8c8;padding:16px;text-align:center}
+.leaflet-tooltip{background:white;border:1px solid #e2e6ef;border-radius:8px;padding:6px 10px;font-family:'Inter',sans-serif;font-size:12px;color:#1a1f2e;box-shadow:0 2px 8px rgba(0,0,0,0.12)}
+.leaflet-tooltip b{font-weight:600;display:block;margin-bottom:2px}
 .debug{background:#1e1e2e;color:#a6e3a1;font-family:monospace;font-size:10px;padding:8px 12px;max-height:160px;overflow-y:auto;border-top:1px solid #e2e6ef;display:none}
 .debug.open{display:block}
-.debug-btn{font-size:10px;color:#b0b8c8;background:none;border:none;cursor:pointer;padding:0;text-decoration:underline}
 .footer{background:#fff;border-top:1px solid #e2e6ef;padding:8px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .footer-links{display:flex;gap:12px;font-size:10px;color:#b0b8c8;flex:1;flex-wrap:wrap}
 .footer-links a{color:#6b9fd4;text-decoration:none}
-.api-row{display:flex;align-items:center;gap:8px}
-.api-input{font-size:11px;padding:5px 10px;border-radius:8px;border:1px solid #e2e6ef;background:#f4f6f9;color:#1a1f2e;width:240px}
-.api-input::placeholder{color:#b0b8c8}
-.connect-btn{font-size:11px;font-weight:500;padding:5px 12px;border-radius:8px;border:1px solid #bfdbfe;background:#eff6ff;color:#2563eb;cursor:pointer;white-space:nowrap}
-.connect-btn:hover{background:#dbeafe}
-.connect-btn.active{background:#fee2e2;border-color:#fecaca;color:#dc2626}
-
-.leaflet-tooltip {
-  background: white;
-  border: 1px solid #e2e6ef;
-  border-radius: 8px;
-  padding: 6px 10px;
-  font-family: 'Inter', sans-serif;
-  font-size: 12px;
-  color: #1a1f2e;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-  pointer-events: none;
-}
-.leaflet-tooltip b {
-  font-weight: 600;
-  display: block;
-  margin-bottom: 2px;
-}
-.leaflet-tooltip-top:before,
-.leaflet-tooltip-bottom:before,
-.leaflet-tooltip-left:before,
-.leaflet-tooltip-right:before {
-  border-top-color: #e2e6ef;
-}
+.debug-btn{font-size:10px;color:#b0b8c8;background:none;border:none;cursor:pointer;padding:0;text-decoration:underline}
 </style>
 </head>
 <body>
@@ -162,57 +134,55 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:#f4f6f9;color:#1
     </div>
   </div>
 
+  <div class="vlist">
+    <div class="vlist-header">
+      <span class="vlist-title">Vessels in transit</span>
+      <span class="vlist-sub" id="vlist-sub"></span>
+    </div>
+    <div class="vlist-items" id="vessel-cards">
+      <div class="empty">Connecting…</div>
+    </div>
+  </div>
+
+  <div class="debug" id="debug"></div>
+
   <div class="footer">
     <div class="footer-links">
       <span>Tides: <a href="https://tidesandcurrents.noaa.gov" target="_blank">NOAA</a> #8447173</span>
       <span>AIS: <a href="https://aisstream.io" target="_blank">aisstream.io</a></span>
       <span>Map: <a href="https://openstreetmap.org" target="_blank">OpenStreetMap</a></span>
-      <button class="debug-btn" onclick="document.getElementById('debug').classList.toggle('open');this.textContent=document.getElementById('debug').classList.contains('open')?'hide debug log':'show debug log'">show debug log</button>
-    </div>
-    <div class="api-row">
-      
-      
+      <button class="debug-btn" onclick="const d=document.getElementById('debug');d.classList.toggle('open');this.textContent=d.classList.contains('open')?'hide debug log':'show debug log'">show debug log</button>
     </div>
   </div>
-
-  <div class="debug" id="debug"></div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 const PIN  = {lat:41.735121, lon:-70.626588};
 const VIEW = {minLat:41.60, maxLat:41.90, minLon:-70.80, maxLon:-70.10};
+const AIS_KEY = '39071b12fe3f5dc80632d1d8b0b4ba3b387488c5';
 const NOAA = 'https://api.tidesandcurrents.noaa.gov/api/prod/datagetter';
 const TIDE_ST='8447173', CURR_ST='ACT0926';
 const TODAY=(()=>{const d=new Date();return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;})();
 
 const VTYPES=[
-  {type:'cargo',    label:'Cargo',    icon:'🚢',badge:'badge-cargo',    hull:'#1a6abf',deck:'#e8f0fa',stripe:'#c8daf5'},
-  {type:'tanker',   label:'Tanker',   icon:'🛢️',badge:'badge-tanker',   hull:'#8b3a1a',deck:'#fae8e0',stripe:'#f0c4b0'},
-  {type:'passenger',label:'Passenger',icon:'⛴️',badge:'badge-passenger',hull:'#0a6644',deck:'#e0f5ec',stripe:'#9fe1cb'},
-  {type:'tug',      label:'Tug',      icon:'🛥️',badge:'badge-tug',      hull:'#7a4400',deck:'#fff0d0',stripe:'#fac775'},
-  {type:'sail',     label:'Sailboat', icon:'⛵',badge:'badge-sail',     hull:'#3c2e8a',deck:'#f0eeff',stripe:'#c8c4f5'},
-  {type:'other',    label:'Vessel',   icon:'🚤',badge:'badge-other',    hull:'#4a4a48',deck:'#f0efea',stripe:'#c8c6c0'},
-];
-const DEMO=[
-  {mmsi:'366123456',name:'CAPE ANN',        type:'cargo',    heading:'E→W',speed:8.2, lon:-70.520,lat:41.762},
-  {mmsi:'367654321',name:'PILGRIM SPIRIT',  type:'passenger',heading:'W→E',speed:11.4,lon:-70.575,lat:41.758},
-  {mmsi:'338001122',name:'PROVINCETOWN IV', type:'passenger',heading:'E→W',speed:9.7, lon:-70.490,lat:41.764},
-  {mmsi:'367889900',name:'CAPE LIGHT',      type:'tanker',   heading:'W→E',speed:6.1, lon:-70.540,lat:41.760},
-  {mmsi:'366445566',name:'SANDWICH TUG 3',  type:'tug',      heading:'E→W',speed:5.3, lon:-70.605,lat:41.756},
-  {mmsi:'366778899',name:'BOURNE PILOT',    type:'tug',      heading:'W→E',speed:4.1, lon:-70.628,lat:41.734},
+  {type:'cargo',    label:'Cargo',    icon:'🚢',badge:'badge-cargo',    hull:'#1a6abf'},
+  {type:'tanker',   label:'Tanker',   icon:'🛢️',badge:'badge-tanker',   hull:'#9a3412'},
+  {type:'passenger',label:'Passenger',icon:'⛴️',badge:'badge-passenger',hull:'#166534'},
+  {type:'tug',      label:'Tug',      icon:'🛥️',badge:'badge-tug',      hull:'#854d0e'},
+  {type:'sail',     label:'Sailboat', icon:'⛵',badge:'badge-sail',     hull:'#5b21b6'},
+  {type:'other',    label:'Vessel',   icon:'🚤',badge:'badge-other',    hull:'#475569'},
 ];
 
-let vessels={}, ws=null, demoInterval=null, nearestMmsi=null;
-let leafletMarkers={}, map, isLive=false, msgTotal=0;
+let vessels={}, ws=null, nearestMmsi=null, leafletMarkers={}, map, msgTotal=0;
 
 function dbg(msg){
   const el=document.getElementById('debug');
+  if(!el)return;
   const line=document.createElement('div');
   line.textContent=new Date().toLocaleTimeString()+' '+msg;
   el.appendChild(line);
   el.scrollTop=el.scrollHeight;
-  console.log('[CCC]',msg);
 }
 
 function haversineNm(a,b,c,d){const R=3440.065,dL=(c-a)*Math.PI/180,dl=(d-b)*Math.PI/180,x=Math.sin(dL/2)**2+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dl/2)**2;return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));}
@@ -220,54 +190,107 @@ function typeFromCode(tc){tc=parseInt(tc)||0;if(tc>=70&&tc<80)return'cargo';if(t
 function vtype(v){return VTYPES.find(t=>t.type===v.type)||VTYPES[5];}
 function findNearest(){let best=null,min=Infinity;Object.values(vessels).forEach(v=>{if(v.lat==null)return;const d=haversineNm(PIN.lat,PIN.lon,v.lat,v.lon);if(d<min){min=d;best=v;}});return best?{vessel:best,dist:min}:null;}
 
-function clearAll(){
-  if(demoInterval){clearInterval(demoInterval);demoInterval=null;}
-  if(map)Object.values(leafletMarkers).forEach(m=>map.removeLayer(m));
-  leafletMarkers={};vessels={};msgTotal=0;
-  const safe=(id,fn)=>{const el=document.getElementById(id);if(el)fn(el);};
-  ['cp-name','cp-type','cp-heading','cp-speed','cp-dist','cp-mmsi','nearest-dist'].forEach(id=>safe(id,el=>el.textContent='—'));
-  safe('nearest-name',el=>el.textContent='to your pin');
-  safe('cp-link',el=>el.style.display='none');
-  safe('vessel-count',el=>el.textContent='0');
-  safe('vlist-sub',el=>el.textContent='');
-  safe('vessel-cards',el=>el.innerHTML='<div class="empty">Waiting for vessels…</div>');
-  safe('debug',el=>el.innerHTML='');
-}
-
 function handleAISMessage(raw){
   try{
     const msg=JSON.parse(raw);
     msgTotal++;
-    const msgType=msg.MessageType||msg.messageType||'unknown';
-    const meta=msg.MetaData||msg.metadata||{};
-    const mmsi=String(meta.MMSI||meta.mmsi||'');
-
-    if(msgTotal<=30||msgTotal%100===0){
-      dbg(`#${msgTotal} ${msgType} mmsi=${mmsi} name="${(meta.ShipName||'').trim()}"`);
-    }
-
+    const msgType=msg.MessageType||'';
+    const meta=msg.MetaData||{};
+    const mmsi=String(meta.MMSI||'');
     if(!mmsi)return;
+    if(msgTotal<=20||msgTotal%100===0) dbg(`#${msgTotal} ${msgType} mmsi=${mmsi} name="${(meta.ShipName||'').trim()}"`);
 
     if(msgType==='PositionReport'){
       const pos=msg.Message?.PositionReport||{};
-      const lon=pos.Longitude??pos.longitude;
-      const lat=pos.Latitude??pos.latitude;
+      const lon=pos.Longitude, lat=pos.Latitude;
       if(lon==null||lat==null)return;
       const prev=vessels[mmsi];
       let heading=prev?.heading||'W→E';
       if(prev?.lon!=null) heading=lon>prev.lon?'W→E':'E→W';
       else if(pos.TrueHeading!=null&&pos.TrueHeading<360) heading=pos.TrueHeading<180?'W→E':'E→W';
-      vessels[mmsi]={mmsi,name:meta.ShipName?.trim()||prev?.name||`MMSI …${mmsi.slice(-4)}`,type:prev?.type||typeFromCode(meta.ShipType),heading,speed:pos.Sog??pos.SOG??0,lon,lat};
+      vessels[mmsi]={mmsi,name:meta.ShipName?.trim()||prev?.name||`MMSI …${mmsi.slice(-4)}`,type:prev?.type||typeFromCode(meta.ShipType),heading,speed:pos.Sog??0,lon,lat};
       document.getElementById('last-update').textContent='updated '+new Date().toLocaleTimeString();
       updateMarkers();
     } else if(msgType==='ShipStaticData'){
       const s=msg.Message?.ShipStaticData||{};
-      const name=(s.Name||s.name||meta.ShipName||'').trim();
-      const tc=s.Type??s.TypeOfShipAndCargoType??meta.ShipType??0;
+      const name=(s.Name||meta.ShipName||'').trim();
+      const tc=s.Type??meta.ShipType??0;
       if(vessels[mmsi]){if(name)vessels[mmsi].name=name;vessels[mmsi].type=typeFromCode(tc);updateMarkers();}
       else vessels[mmsi]={mmsi,name:name||`MMSI …${mmsi.slice(-4)}`,type:typeFromCode(tc),heading:'W→E',speed:0,lon:null,lat:null};
     }
   }catch(e){dbg('parse error: '+e.message);}
+}
+
+function vesselIcon(v,isNearest){
+  const info=vtype(v);
+  const sz=isNearest?36:28;
+  const color=isNearest?'#ef4444':info.hull;
+  const ring=isNearest?`<circle cx="18" cy="18" r="16" fill="none" stroke="#ef4444" stroke-width="1.5" opacity="0.3"/>`:'';
+  const flip=v.heading==='E→W'?`transform="scale(-1,1) translate(-36,0)"`:'';
+  const arrow=`<g ${flip}><path d="M18,3 L30,28 Q18,22 6,28 Z" fill="${color}" opacity="0.95"/><path d="M18,3 L30,28 Q18,22 6,28 Z" fill="none" stroke="white" stroke-width="0.8" opacity="0.6"/></g>`;
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${sz}" height="${sz}" viewBox="0 0 36 36">${ring}${arrow}</svg>`;
+  return L.divIcon({html:svg,className:'',iconSize:[sz,sz],iconAnchor:[sz/2,sz/2]});
+}
+
+function updateMarkers(){
+  const nearest=findNearest(); nearestMmsi=nearest?.vessel?.mmsi;
+  const active=Object.values(vessels).filter(v=>v.lat!=null&&v.lon!=null);
+  Object.keys(leafletMarkers).forEach(mmsi=>{
+    if(!vessels[mmsi]||vessels[mmsi].lat==null){map.removeLayer(leafletMarkers[mmsi]);delete leafletMarkers[mmsi];}
+  });
+  active.forEach(v=>{
+    const isNearest=v.mmsi===nearestMmsi, icon=vesselIcon(v,isNearest);
+    if(leafletMarkers[v.mmsi]){
+      leafletMarkers[v.mmsi].setLatLng([v.lat,v.lon]).setIcon(icon);
+    } else {
+      const m=L.marker([v.lat,v.lon],{icon}).addTo(map);
+      m.bindTooltip(()=>{
+        const cur=vessels[v.mmsi]||v;
+        return `<b>${cur.name}</b>Type: ${vtype(cur).label}<br>Heading: ${cur.heading}<br>Speed: ${(cur.speed||0).toFixed(1)} kn<br>MMSI: ${v.mmsi}`;
+      },{sticky:true,opacity:1,direction:'top'});
+      m.on('click',()=>map.panTo([v.lat,v.lon]));
+      leafletMarkers[v.mmsi]=m;
+    }
+  });
+  updatePanel(nearest); renderList();
+  document.getElementById('vessel-count').textContent=active.length;
+  document.getElementById('vlist-sub').textContent=`${active.length} vessel${active.length!==1?'s':''}`;
+}
+
+function updatePanel(nearest){
+  if(!nearest){
+    ['cp-name','cp-type','cp-heading','cp-speed','cp-dist','cp-mmsi'].forEach(id=>document.getElementById(id).textContent='—');
+    document.getElementById('nearest-dist').textContent='—';
+    document.getElementById('nearest-name').textContent='to your pin';
+    document.getElementById('cp-link').style.display='none';
+    return;
+  }
+  const{vessel:v,dist}=nearest;
+  document.getElementById('cp-name').textContent=v.name;
+  document.getElementById('cp-type').textContent=vtype(v).label;
+  document.getElementById('cp-heading').textContent=v.heading;
+  document.getElementById('cp-speed').textContent=(v.speed||0).toFixed(1)+' kn';
+  document.getElementById('cp-dist').textContent=dist.toFixed(2)+' nm';
+  document.getElementById('cp-mmsi').textContent=v.mmsi;
+  document.getElementById('nearest-dist').textContent=dist.toFixed(2)+' nm';
+  document.getElementById('nearest-name').textContent=v.name;
+  const lnk=document.getElementById('cp-link');
+  lnk.href=`https://www.marinetraffic.com/en/ais/details/ships/mmsi:${v.mmsi}`;
+  lnk.style.display='block';
+}
+
+function renderList(){
+  const list=Object.values(vessels).filter(v=>v.lat!=null&&v.lon!=null);
+  const cards=document.getElementById('vessel-cards');
+  if(!list.length){cards.innerHTML='<div class="empty">Connected — waiting for vessels…</div>';return;}
+  cards.innerHTML=list.map(v=>{
+    const info=vtype(v), isNearest=v.mmsi===nearestMmsi;
+    return `<div class="vc${isNearest?' nearest':''}" onclick="map.panTo([${v.lat},${v.lon}])">
+      <div class="vc-icon">${info.icon}</div>
+      <div class="vc-info"><div class="vc-name">${v.name}</div><div class="vc-meta">${v.heading} · ${(v.speed||0).toFixed(1)} kn</div></div>
+      <div class="vc-right">${isNearest?'<span class="badge badge-nearest">nearest</span>':`<span class="badge ${info.badge}">${info.label}</span>`}<span class="badge badge-speed">${(v.speed||0).toFixed(1)} kn</span></div>
+    </div>`;
+  }).join('');
 }
 
 async function loadTides(){
@@ -276,12 +299,13 @@ async function loadTides(){
       fetch(`${NOAA}?station=${TIDE_ST}&product=predictions&datum=MLLW&time_zone=lst_ldt&interval=6&units=english&application=ccc&format=json&begin_date=${TODAY}&end_date=${TODAY}`),
       fetch(`${NOAA}?station=${TIDE_ST}&product=predictions&datum=MLLW&time_zone=lst_ldt&interval=hilo&units=english&application=ccc&format=json&begin_date=${TODAY}&end_date=${TODAY}`)
     ]);
-    const cData=await cRes.json(),hData=await hRes.json();
+    const cData=await cRes.json(), hData=await hRes.json();
     const pts=cData?.predictions||[];
-    if(pts.length)drawTideChart(pts);else drawFallbackChart();
+    if(pts.length)drawTideChart(pts); else drawFallbackChart();
     updateTideCard(hData?.predictions||[]);
   }catch(e){drawFallbackChart();}
 }
+
 async function loadCurrents(){
   try{
     const res=await fetch(`${NOAA}?station=${CURR_ST}&product=currents_predictions&time_zone=lst_ldt&interval=MAX_SLACK&units=english&application=ccc&format=json&begin_date=${TODAY}&end_date=${TODAY}`);
@@ -289,6 +313,7 @@ async function loadCurrents(){
     updateCurrentCard(data?.current_predictions?.cp||[]);
   }catch(e){}
 }
+
 function updateTideCard(hilo){
   if(!hilo.length)return;
   const now=new Date();
@@ -298,6 +323,7 @@ function updateTideCard(hilo){
   document.getElementById('tide-next').innerHTML=`<span class="${isHigh?'flood':'ebb'}">${isHigh?'▲':'▼'} ${parseFloat(next.v).toFixed(1)} ft</span>`;
   document.getElementById('tide-sub').textContent=`${isHigh?'High':'Low'} at ${ts}`;
 }
+
 function updateCurrentCard(preds){
   if(!preds.length)return;
   const now=new Date();
@@ -306,165 +332,84 @@ function updateCurrentCard(preds){
   const cur=past[past.length-1]||sorted[0];
   const next=sorted.find(p=>new Date(p.t)>now);
   const type=cur.type||'';
-  const isFlood=type.includes('flood'),isEbb=type.includes('ebb');
+  const isFlood=type.includes('flood'), isEbb=type.includes('ebb');
   const spd=parseFloat(cur.velocity||cur.Speed||0);
   const cls=isFlood?'flood':isEbb?'ebb':'slack';
   const arrow=isFlood?'→':isEbb?'←':'⇌';
   document.getElementById('current-val').innerHTML=`<span class="${cls}">${arrow} ${spd>0?spd.toFixed(1)+' kn':(isFlood?'Flood':isEbb?'Ebb':'Slack')}</span>`;
   if(next){const ts=new Date(next.t).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});document.getElementById('current-sub').textContent=`Next: ${(next.type||'').replace('max ','')} ${ts}`;}
 }
+
 function drawTideChart(points){
   const canvas=document.getElementById('tide-chart');
-  const W=canvas.parentElement.clientWidth-32||800,H=56;
+  const W=canvas.parentElement.clientWidth-32||800, H=56;
   const dpr=window.devicePixelRatio||1;
-  canvas.width=W*dpr;canvas.height=H*dpr;canvas.style.width=W+'px';canvas.style.height=H+'px';
-  const ctx=canvas.getContext('2d');ctx.scale(dpr,dpr);
+  canvas.width=W*dpr; canvas.height=H*dpr; canvas.style.width=W+'px'; canvas.style.height=H+'px';
+  const ctx=canvas.getContext('2d'); ctx.scale(dpr,dpr);
   const vals=points.map(p=>parseFloat(p.v));
   const times=points.map(p=>new Date(p.t));
-  const minV=Math.min(...vals),maxV=Math.max(...vals),range=maxV-minV||1;
+  const minV=Math.min(...vals), maxV=Math.max(...vals), range=maxV-minV||1;
   const pad={t:4,b:14,l:24,r:4};
-  const cw=W-pad.l-pad.r,ch=H-pad.t-pad.b;
+  const cw=W-pad.l-pad.r, ch=H-pad.t-pad.b;
   const xOf=i=>pad.l+(i/(points.length-1))*cw;
   const yOf=v=>pad.t+ch-((v-minV)/range)*ch;
-  ctx.beginPath();ctx.moveTo(xOf(0),yOf(vals[0]));vals.forEach((v,i)=>{if(i>0)ctx.lineTo(xOf(i),yOf(v));});
-  ctx.lineTo(xOf(vals.length-1),H-pad.b);ctx.lineTo(xOf(0),H-pad.b);ctx.closePath();
-  ctx.fillStyle='rgba(37,99,235,0.07)';ctx.fill();
-  ctx.beginPath();ctx.moveTo(xOf(0),yOf(vals[0]));vals.forEach((v,i)=>{if(i>0)ctx.lineTo(xOf(i),yOf(v));});
-  ctx.strokeStyle='#2563eb';ctx.lineWidth=1.5;ctx.stroke();
-  const now=new Date(),start=times[0],end=times[times.length-1];
+  ctx.beginPath(); ctx.moveTo(xOf(0),yOf(vals[0])); vals.forEach((v,i)=>{if(i>0)ctx.lineTo(xOf(i),yOf(v));});
+  ctx.lineTo(xOf(vals.length-1),H-pad.b); ctx.lineTo(xOf(0),H-pad.b); ctx.closePath();
+  ctx.fillStyle='rgba(37,99,235,0.07)'; ctx.fill();
+  ctx.beginPath(); ctx.moveTo(xOf(0),yOf(vals[0])); vals.forEach((v,i)=>{if(i>0)ctx.lineTo(xOf(i),yOf(v));});
+  ctx.strokeStyle='#2563eb'; ctx.lineWidth=1.5; ctx.stroke();
+  const now=new Date(), start=times[0], end=times[times.length-1];
   const nx=pad.l+Math.max(0,Math.min(1,(now-start)/(end-start)))*cw;
-  ctx.beginPath();ctx.moveTo(nx,pad.t);ctx.lineTo(nx,H-pad.b);ctx.strokeStyle='#ef4444';ctx.lineWidth=1;ctx.setLineDash([3,3]);ctx.stroke();ctx.setLineDash([]);
-  ctx.fillStyle='rgba(136,146,164,0.8)';ctx.font='9px Inter,sans-serif';ctx.textAlign='center';
+  ctx.beginPath(); ctx.moveTo(nx,pad.t); ctx.lineTo(nx,H-pad.b);
+  ctx.strokeStyle='#ef4444'; ctx.lineWidth=1; ctx.setLineDash([3,3]); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle='rgba(136,146,164,0.8)'; ctx.font='9px Inter,sans-serif'; ctx.textAlign='center';
   [{h:0,l:'12a'},{h:6,l:'6a'},{h:12,l:'12p'},{h:18,l:'6p'},{h:24,l:'12a'}].forEach(({h,l})=>ctx.fillText(l,pad.l+(h/24)*cw,H-2));
-  ctx.textAlign='right';ctx.fillText(maxV.toFixed(1),pad.l-2,pad.t+8);ctx.fillText(minV.toFixed(1),pad.l-2,H-pad.b);
+  ctx.textAlign='right'; ctx.fillText(maxV.toFixed(1),pad.l-2,pad.t+8); ctx.fillText(minV.toFixed(1),pad.l-2,H-pad.b);
 }
+
 function drawFallbackChart(){
   const pts=Array.from({length:241},(_,i)=>({t:new Date(new Date().setHours(0,i*6,0,0)).toISOString(),v:(2.5+2.5*Math.sin((i/240)*4*Math.PI-Math.PI/2)).toFixed(2)}));
   drawTideChart(pts);
 }
-function vesselIcon(v,isNearest){
-  const info=vtype(v);
-  const sz=isNearest?36:28;
-  const color=isNearest?'#ef4444':info.hull;
-  const ring=isNearest?`<circle cx="18" cy="18" r="16" fill="none" stroke="#ef4444" stroke-width="1.5" opacity="0.3"/>`:'';
-  // Arrow points right (W→E); flip horizontally for E→W
-  const flip=v.heading==='E→W'?`transform="scale(-1,1) translate(-${sz},0)"`:'';
-  // Teardrop/arrow shape like MarineTraffic
-  const arrow=`<g ${flip}>
-    <path d="M18,3 L30,28 Q18,22 6,28 Z" fill="${color}" opacity="0.95"/>
-    <path d="M18,3 L30,28 Q18,22 6,28 Z" fill="none" stroke="white" stroke-width="0.8" opacity="0.6"/>
-  </g>`;
-  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${sz}" height="${sz}" viewBox="0 0 36 36">${ring}${arrow}</svg>`;
-  return L.divIcon({html:svg,className:'',iconSize:[sz,sz],iconAnchor:[sz/2,sz/2]});
-}
+
 function initMap(){
   map=L.map('map',{zoomControl:true,center:[41.762,-70.555],zoom:12});
   L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{attribution:'© OpenStreetMap © CARTO',maxZoom:19}).addTo(map);
   const pinSvg=`<svg xmlns="http://www.w3.org/2000/svg" width="18" height="24" viewBox="0 0 18 24"><circle cx="9" cy="9" r="7" fill="#ef4444" opacity="0.9"/><circle cx="9" cy="9" r="3.5" fill="white"/><line x1="9" y1="16" x2="9" y2="24" stroke="#ef4444" stroke-width="2"/></svg>`;
   L.marker([PIN.lat,PIN.lon],{icon:L.divIcon({html:pinSvg,className:'',iconSize:[18,24],iconAnchor:[9,24]})}).addTo(map).bindTooltip('Your pin');
+}
 
-
-}
-function updateMarkers(){
-  const nearest=findNearest();nearestMmsi=nearest?.vessel?.mmsi;
-  const active=Object.values(vessels).filter(v=>v.lat!=null&&v.lon!=null);
-  Object.keys(leafletMarkers).forEach(mmsi=>{if(!vessels[mmsi]||vessels[mmsi].lat==null){map.removeLayer(leafletMarkers[mmsi]);delete leafletMarkers[mmsi];}});
-  active.forEach(v=>{
-    const isNearest=v.mmsi===nearestMmsi,icon=vesselIcon(v,isNearest);
-    if(leafletMarkers[v.mmsi])leafletMarkers[v.mmsi].setLatLng([v.lat,v.lon]).setIcon(icon);
-    else{const m=L.marker([v.lat,v.lon],{icon}).addTo(map).bindTooltip(`<b>${v.name}</b><br>${v.heading} · ${v.speed.toFixed(1)} kn`,{sticky:true});m.on('click',()=>map.panTo([v.lat,v.lon]));leafletMarkers[v.mmsi]=m;}
-  });
-  updatePanel(nearest);renderList();
-  document.getElementById('vessel-count').textContent=active.length;
-  document.getElementById('vlist-sub').textContent=`${active.length} vessel${active.length!==1?'s':''}`;
-}
-function updatePanel(nearest){
-  if(!nearest){
-    ['cp-name','cp-type','cp-heading','cp-speed','cp-dist','cp-mmsi'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent='—';});
-    
-    
-    document.getElementById('cp-link').style.display='none';
-    return;
-  }
-  const{vessel:v,dist}=nearest;
-  document.getElementById('cp-name').textContent=v.name;
-  document.getElementById('cp-type').textContent=vtype(v).label;
-  document.getElementById('cp-heading').textContent=v.heading;
-  document.getElementById('cp-speed').textContent=v.speed.toFixed(1)+' kn';
-  document.getElementById('cp-dist').textContent=dist.toFixed(2)+' nm';
-  document.getElementById('cp-mmsi').textContent=v.mmsi;
-  document.getElementById('nearest-dist').textContent=dist.toFixed(2)+' nm';
-  document.getElementById('nearest-name').textContent=v.name;
-  const lnk=document.getElementById('cp-link');
-  lnk.href=`https://www.marinetraffic.com/en/ais/details/ships/mmsi:${v.mmsi}`;
-  lnk.style.display='block';
-}
-function renderList(){
-  const list=Object.values(vessels).filter(v=>v.lat!=null&&v.lon!=null);
-  const cards=document.getElementById('vessel-cards');
-  if(!list.length){cards.innerHTML=isLive?'<div class="empty">Connected — waiting for vessels…</div>':'<div class="empty">No vessels</div>';return;}
-  cards.innerHTML=list.map(v=>{
-    const info=vtype(v),isNearest=v.mmsi===nearestMmsi;
-    return `<div class="vc${isNearest?' nearest':''}" onclick="map.panTo([${v.lat},${v.lon}])">
-      <div class="vc-icon">${info.icon}</div>
-      <div class="vc-info"><div class="vc-name">${v.name}</div><div class="vc-meta">${v.heading} · ${v.speed.toFixed(1)} kn</div></div>
-      <div class="vc-right">${isNearest?'<span class="badge badge-nearest">nearest</span>':`<span class="badge ${info.badge}">${info.label}</span>`}<span class="badge badge-speed">${v.speed.toFixed(1)} kn</span></div>
-    </div>`;
-  }).join('');
-}
-function startDemo(){
-  isLive=false;
-  DEMO.forEach(v=>{vessels[v.mmsi]={...v};});
-  updateMarkers();
-  document.getElementById('last-update').textContent='demo data';
-  document.getElementById('status-dot').className='dot demo';
-  document.getElementById('status-text').textContent='demo';
-  
-  
-  demoInterval=setInterval(()=>{
-    Object.values(vessels).forEach(v=>{
-      const dir=v.heading==='E→W'?-1:1;v.lon+=dir*0.0007;
-      v.speed=Math.max(3,Math.min(14,v.speed+(Math.random()-.5)*.3));
-      if(v.lon<-70.65)v.lon=-70.47;
-      if(v.lon>-70.47)v.lon=-70.65;
-    });
-    updateMarkers();
-  },2000);
-}
-function toggleLive(){
-  if(isLive){if(ws){ws.close();ws=null;}isLive=false;startDemo();return;}
-  const key='39071b12fe3f5dc80632d1d8b0b4ba3b387488c5';
-  
-  clearAll();isLive=true;
-  document.getElementById('status-dot').className='dot connecting';
-  document.getElementById('status-text').textContent='connecting…';
-  
-  
-  dbg('Opening WebSocket…');
+function connectAIS(){
+  dbg('Connecting to AISstream…');
   ws=new WebSocket('wss://stream.aisstream.io/v0/stream');
   ws.onopen=()=>{
-    const sub={APIKey:key,BoundingBoxes:[[[VIEW.minLat,VIEW.minLon],[VIEW.maxLat,VIEW.maxLon]]],FilterMessageTypes:['PositionReport','ShipStaticData']};
-    dbg('Connected — sending subscription');
-    ws.send(JSON.stringify(sub));
+    ws.send(JSON.stringify({APIKey:AIS_KEY,BoundingBoxes:[[[VIEW.minLat,VIEW.minLon],[VIEW.maxLat,VIEW.maxLon]]],FilterMessageTypes:['PositionReport','ShipStaticData']}));
     document.getElementById('status-dot').className='dot live';
     document.getElementById('status-text').textContent='live';
-    document.getElementById('last-update').textContent='connected, waiting…';
+    dbg('Connected and subscribed');
   };
   ws.onmessage=(evt)=>{
-    if(evt.data instanceof Blob){evt.data.text().then(handleAISMessage);}
-    else{handleAISMessage(evt.data);}
+    if(evt.data instanceof Blob) evt.data.text().then(handleAISMessage);
+    else handleAISMessage(evt.data);
   };
-  ws.onerror=(e)=>{
-    dbg('WebSocket error: '+(e.message||'unknown'));
+  ws.onerror=()=>{
     document.getElementById('status-dot').className='dot error';
     document.getElementById('status-text').textContent='error';
+    dbg('WebSocket error');
   };
   ws.onclose=(e)=>{
-    dbg(`WebSocket closed — code:${e.code} reason:"${e.reason}"`);
-    if(isLive){document.getElementById('status-dot').className='dot';document.getElementById('status-text').textContent='disconnected';}
+    dbg(`Closed code:${e.code} — reconnecting in 5s…`);
+    document.getElementById('status-dot').className='dot connecting';
+    document.getElementById('status-text').textContent='reconnecting…';
+    setTimeout(connectAIS, 5000);
   };
 }
-initMap();loadTides();loadCurrents();setTimeout(toggleLive,1200);
+
+// Boot
+initMap();
+loadTides();
+loadCurrents();
+connectAIS();
 </script>
 </body>
 </html>
