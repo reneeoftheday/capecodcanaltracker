@@ -69,6 +69,38 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:#f4f6f9;color:#1
 .footer-links{display:flex;gap:12px;font-size:10px;color:#b0b8c8;flex:1;flex-wrap:wrap}
 .footer-links a{color:#6b9fd4;text-decoration:none}
 .debug-btn{font-size:10px;color:#b0b8c8;background:none;border:none;cursor:pointer;padding:0;text-decoration:underline}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  #dash { margin: 0; border-radius: 0; border: none; }
+  .topbar { padding: 10px 14px; }
+  .topbar-title { font-size: 13px; }
+  .stat-row { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .body { grid-template-columns: 1fr; }
+  #map { height: 50vh; }
+  .side {
+    border-left: none;
+    border-top: 1px solid #e2e6ef;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .side-header { grid-column: 1 / -1; }
+  .side-body { grid-column: 1 / 2; }
+  .mt-link { grid-column: 1 / 2; }
+  .pin-note { grid-column: 2 / 3; grid-row: 2 / 4; align-self: center; padding: 10px; }
+  .vlist-items { grid-template-columns: 1fr; }
+  .footer { padding: 8px 14px; }
+  .footer-links { gap: 8px; font-size: 10px; }
+  #dash { border-radius: 0; }
+  .chart-wrap { padding: 8px 14px 6px; }
+}
+@media (max-width: 480px) {
+  .stat-row { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .stat { padding: 10px 12px; }
+  .stat-value { font-size: 16px; }
+  #map { height: 45vh; }
+  .side { display: block; }
+}
 </style>
 </head>
 <body>
@@ -111,8 +143,8 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:#f4f6f9;color:#1
   </div>
 
   <div class="chart-wrap">
-    <div class="chart-label">Today's tide — Gray Gables, MA · NOAA #8447173</div>
-    <canvas id="tide-chart"></canvas>
+    <div class="chart-label" style="display:flex;justify-content:space-between;align-items:center;"><span>Today's tide — Gray Gables, MA · NOAA #8447173</span><span id="tide-readout" style="font-weight:600;color:#2563eb;font-size:11px;"></span></div>
+    <canvas id="tide-chart" style="cursor:crosshair"></canvas>
   </div>
 
   <div class="body">
@@ -340,7 +372,9 @@ function updateCurrentCard(preds){
   if(next){const ts=new Date(next.t).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});document.getElementById('current-sub').textContent=`Next: ${(next.type||'').replace('max ','')} ${ts}`;}
 }
 
+let _tidePoints = [];
 function drawTideChart(points){
+  _tidePoints = points;
   const canvas=document.getElementById('tide-chart');
   const W=canvas.parentElement.clientWidth-32||800, H=56;
   const dpr=window.devicePixelRatio||1;
@@ -365,6 +399,27 @@ function drawTideChart(points){
   ctx.fillStyle='rgba(136,146,164,0.8)'; ctx.font='9px Inter,sans-serif'; ctx.textAlign='center';
   [{h:0,l:'12a'},{h:6,l:'6a'},{h:12,l:'12p'},{h:18,l:'6p'},{h:24,l:'12a'}].forEach(({h,l})=>ctx.fillText(l,pad.l+(h/24)*cw,H-2));
   ctx.textAlign='right'; ctx.fillText(maxV.toFixed(1),pad.l-2,pad.t+8); ctx.fillText(minV.toFixed(1),pad.l-2,H-pad.b);
+
+  // Click/touch to read tide height at that hour
+  canvas.onclick = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const frac = Math.max(0, Math.min(1, (x - pad.l) / cw));
+    const idx = Math.round(frac * (points.length - 1));
+    const pt = points[idx];
+    if (!pt) return;
+    const t = new Date(pt.t);
+    const timeStr = t.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit', hour12:true});
+    const ht = parseFloat(pt.v).toFixed(1);
+    document.getElementById('tide-readout').textContent = `${timeStr} → ${ht} ft`;
+    // Draw a vertical indicator line
+    drawTideChart(_tidePoints);
+    const nx2 = pad.l + frac * cw;
+    ctx.beginPath(); ctx.moveTo(nx2, pad.t); ctx.lineTo(nx2, H - pad.b);
+    ctx.strokeStyle = '#2563eb'; ctx.lineWidth = 1.5; ctx.setLineDash([3,3]); ctx.stroke(); ctx.setLineDash([]);
+    ctx.beginPath(); ctx.arc(nx2, yOf(parseFloat(pt.v)), 3, 0, Math.PI*2);
+    ctx.fillStyle = '#2563eb'; ctx.fill();
+  };
 }
 
 function drawFallbackChart(){
