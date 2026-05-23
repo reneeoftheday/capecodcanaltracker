@@ -87,8 +87,8 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:#f4f6f9;color:#1
       </div>
     </div>
     <div class="status-pill">
-      <div class="dot demo" id="status-dot"></div>
-      <span id="status-text">demo</span>
+      <div class="dot connecting" id="status-dot"></div>
+      <span id="status-text">connecting…</span>
     </div>
   </div>
 
@@ -148,7 +148,7 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:#f4f6f9;color:#1
     </div>
     <div class="api-row">
       
-      <button class="connect-btn active" id="connect-btn" onclick="toggleLive()">Disconnect</button>
+      
     </div>
   </div>
 
@@ -199,16 +199,16 @@ function findNearest(){let best=null,min=Infinity;Object.values(vessels).forEach
 
 function clearAll(){
   if(demoInterval){clearInterval(demoInterval);demoInterval=null;}
-  Object.values(leafletMarkers).forEach(m=>map.removeLayer(m));
+  if(map)Object.values(leafletMarkers).forEach(m=>map.removeLayer(m));
   leafletMarkers={};vessels={};msgTotal=0;
-  ['cp-name','cp-type','cp-heading','cp-speed','cp-dist','cp-mmsi'].forEach(id=>document.getElementById(id).textContent='—');
-  document.getElementById('nearest-dist').textContent='—';
-  document.getElementById('nearest-name').textContent='to your pin';
-  document.getElementById('cp-link').style.display='none';
-  document.getElementById('vessel-count').textContent='0';
-  document.getElementById('vlist-sub').textContent='';
-  document.getElementById('vessel-cards').innerHTML='<div class="empty">Waiting for vessels…</div>';
-  document.getElementById('debug').innerHTML='';
+  const safe=(id,fn)=>{const el=document.getElementById(id);if(el)fn(el);};
+  ['cp-name','cp-type','cp-heading','cp-speed','cp-dist','cp-mmsi','nearest-dist'].forEach(id=>safe(id,el=>el.textContent='—'));
+  safe('nearest-name',el=>el.textContent='to your pin');
+  safe('cp-link',el=>el.style.display='none');
+  safe('vessel-count',el=>el.textContent='0');
+  safe('vlist-sub',el=>el.textContent='');
+  safe('vessel-cards',el=>el.innerHTML='<div class="empty">Waiting for vessels…</div>');
+  safe('debug',el=>el.innerHTML='');
 }
 
 function handleAISMessage(raw){
@@ -356,9 +356,9 @@ function updateMarkers(){
 }
 function updatePanel(nearest){
   if(!nearest){
-    ['cp-name','cp-type','cp-heading','cp-speed','cp-dist','cp-mmsi'].forEach(id=>document.getElementById(id).textContent='—');
-    document.getElementById('nearest-dist').textContent='—';
-    document.getElementById('nearest-name').textContent='to your pin';
+    ['cp-name','cp-type','cp-heading','cp-speed','cp-dist','cp-mmsi'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent='—';});
+    
+    
     document.getElementById('cp-link').style.display='none';
     return;
   }
@@ -395,8 +395,8 @@ function startDemo(){
   document.getElementById('last-update').textContent='demo data';
   document.getElementById('status-dot').className='dot demo';
   document.getElementById('status-text').textContent='demo';
-  document.getElementById('connect-btn').textContent='Connect live ↗';
-  document.getElementById('connect-btn').classList.remove('active');
+  
+  
   demoInterval=setInterval(()=>{
     Object.values(vessels).forEach(v=>{
       const dir=v.heading==='E→W'?-1:1;v.lon+=dir*0.0007;
@@ -414,8 +414,8 @@ function toggleLive(){
   clearAll();isLive=true;
   document.getElementById('status-dot').className='dot connecting';
   document.getElementById('status-text').textContent='connecting…';
-  document.getElementById('connect-btn').textContent='Disconnect';
-  document.getElementById('connect-btn').classList.add('active');
+  
+  
   dbg('Opening WebSocket…');
   ws=new WebSocket('wss://stream.aisstream.io/v0/stream');
   ws.onopen=()=>{
@@ -440,7 +440,7 @@ function toggleLive(){
     if(isLive){document.getElementById('status-dot').className='dot';document.getElementById('status-text').textContent='disconnected';}
   };
 }
-initMap();loadTides();loadCurrents();setTimeout(toggleLive,800);
+initMap();loadTides();loadCurrents();setTimeout(toggleLive,1200);
 </script>
 </body>
 </html>
