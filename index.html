@@ -447,7 +447,7 @@ function toggleLive(){
     document.getElementById('status-text').textContent='live';
     document.getElementById('last-update').textContent='connected, waiting…';
   };
-  ws.onmessage=(evt)=>handleAISMessage(evt.data);
+  ws.onmessage=(evt)=>{if(evt.data instanceof Blob){evt.data.text().then(handleAISMessage);}else{handleAISMessage(evt.data);}};
   ws.onerror=(e)=>{
     dbg('WebSocket error: '+(e.message||'unknown'));
     document.getElementById('status-dot').className='dot error';
