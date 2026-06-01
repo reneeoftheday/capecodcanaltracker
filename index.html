@@ -188,25 +188,6 @@ function vtype(v){return VTYPES.find(t=>t.type===v.type)||VTYPES[5];}
 
 
 
-async function loadWeather(){
-  try{
-    // NWS points API for canal location
-    const ptRes = await fetch('https://api.weather.gov/points/41.7351,-70.6266');
-    const ptData = await ptRes.json();
-    const forecastUrl = ptData.properties.forecast;
-    const fRes = await fetch(forecastUrl);
-    const fData = await fRes.json();
-    const period = fData.properties.periods[0];
-    const temp = period.temperature;
-    const unit = period.temperatureUnit;
-    const short = period.shortForecast;
-    document.getElementById('wx-val').textContent = `${temp}°${unit} ${short}`;
-    document.getElementById('wx-sub').textContent = period.name + ' · NWS';
-  } catch(e){
-    document.getElementById('wx-val').textContent = '—';
-    document.getElementById('wx-sub').textContent = 'unavailable';
-  }
-}
 
 async function loadNWS(){
   try{
