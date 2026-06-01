@@ -4,7 +4,6 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Cape Cod Canal — Vessel Tracker</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -30,7 +29,7 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:#f4f6f9;color:#1
 .chart-wrap{background:#fff;border-bottom:1px solid #e2e6ef;padding:10px 16px 8px}
 .chart-label{font-size:10px;color:#8892a4;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px}
 #tide-chart{width:100%;height:56px;display:block}
-.body{display:grid;grid-template-columns:minmax(0,1fr) 200px;background:#f4f6f9}
+.body{background:#f4f6f9}
 #map{height:560px;z-index:0}
 .side{background:#fff;border-left:1px solid #e2e6ef;display:flex;flex-direction:column}
 .side-header{padding:12px 14px;border-bottom:1px solid #e2e6ef;background:#f8fafc}
@@ -76,7 +75,7 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:#f4f6f9;color:#1
   .topbar { padding: 10px 14px; }
   .topbar-title { font-size: 13px; }
   .stat-row { grid-template-columns: repeat(2, minmax(0,1fr)); }
-  .body { grid-template-columns: 1fr; }
+
   #map { height: 50vh; }
   .side {
     border-left: none;
@@ -114,32 +113,22 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:#f4f6f9;color:#1
       </div>
     </div>
     <div class="status-pill">
-      <div class="dot connecting" id="status-dot"></div>
-      <span id="status-text">connecting…</span>
+<span style="font-size:11px;color:#8892a4">Cape Cod Canal</span>
     </div>
   </div>
 
   <div class="stat-row">
     <div class="stat">
+      <div class="stat-label">📏 Tide height now</div>
+      <div class="stat-value" id="current-val">—</div>
+      <div class="stat-sub" id="current-sub">Gray Gables</div>
+    </div>
+    <div class="stat">
       <div class="stat-label">🌊 Next tide</div>
       <div class="stat-value" id="tide-next">—</div>
       <div class="stat-sub" id="tide-sub">Gray Gables</div>
     </div>
-    <div class="stat">
-      <div class="stat-label">→ Current</div>
-      <div class="stat-value" id="current-val">—</div>
-      <div class="stat-sub" id="current-sub">canal</div>
-    </div>
-    <div class="stat">
-      <div class="stat-label">⛵ Vessels</div>
-      <div class="stat-value" id="vessel-count">0</div>
-      <div class="stat-sub" id="last-update">in transit</div>
-    </div>
-    <div class="stat">
-      <div class="stat-label">◎ Nearest</div>
-      <div class="stat-value" id="nearest-dist">—</div>
-      <div class="stat-sub" id="nearest-name">to your pin</div>
-    </div>
+
   </div>
 
   <div class="chart-wrap">
@@ -148,35 +137,19 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:#f4f6f9;color:#1
   </div>
 
   <div class="body">
-    <div id="map"></div>
-    <div class="side">
-      <div class="side-header">
-        <div class="side-eyebrow">◎ Closest to pin</div>
-        <div class="side-name" id="cp-name">—</div>
-      </div>
-      <div class="side-body">
-        <div class="side-row"><span class="side-label">Type</span><span class="side-val" id="cp-type">—</span></div>
-        <div class="side-row"><span class="side-label">Heading</span><span class="side-val" id="cp-heading">—</span></div>
-        <div class="side-row"><span class="side-label">Speed</span><span class="side-val" id="cp-speed">—</span></div>
-        <div class="side-row"><span class="side-label">Distance</span><span class="side-val" id="cp-dist">—</span></div>
-        <div class="side-row"><span class="side-label">MMSI</span><span class="side-val" id="cp-mmsi">—</span></div>
-      </div>
-      <a class="mt-link" id="cp-link" href="#" target="_blank" style="display:none">View on MarineTraffic ↗</a>
-      <div class="pin-note">📍 41.7351, -70.6266</div>
-    </div>
+    <div id="map" style="width:100%;height:560px;">
+<script type="text/javascript">
+    var width="100%";
+    var height="560";
+    var latitude="41.762";
+    var longitude="-70.555";
+    var zoom="14";
+    var names=true;
+</script>
+<script type="text/javascript" src="https://www.vesselfinder.com/aismap.js"></script>
+</div>
   </div>
 
-  <div class="vlist">
-    <div class="vlist-header">
-      <span class="vlist-title">Vessels in transit</span>
-      <span class="vlist-sub" id="vlist-sub"></span>
-    </div>
-    <div class="vlist-items" id="vessel-cards">
-      <div class="empty">Connecting…</div>
-    </div>
-  </div>
-
-  <div class="debug" id="debug"></div>
 
   <div class="footer">
     <div class="footer-links">
@@ -188,141 +161,89 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:#f4f6f9;color:#1
   </div>
 </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 const PIN  = {lat:41.735121, lon:-70.626588};
-const VIEW = {minLat:41.60, maxLat:41.90, minLon:-70.80, maxLon:-70.10};
-const AIS_KEY = '39071b12fe3f5dc80632d1d8b0b4ba3b387488c5';
 const NOAA = 'https://api.tidesandcurrents.noaa.gov/api/prod/datagetter';
-const TIDE_ST='8447173', CURR_ST='ACT0926';
+const TIDE_ST='8447173';
 const TODAY=(()=>{const d=new Date();return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;})();
 
-const VTYPES=[
-  {type:'cargo',    label:'Cargo',    icon:'🚢',badge:'badge-cargo',    hull:'#1a6abf'},
-  {type:'tanker',   label:'Tanker',   icon:'🛢️',badge:'badge-tanker',   hull:'#9a3412'},
-  {type:'passenger',label:'Passenger',icon:'⛴️',badge:'badge-passenger',hull:'#166534'},
-  {type:'tug',      label:'Tug',      icon:'🛥️',badge:'badge-tug',      hull:'#854d0e'},
-  {type:'sail',     label:'Sailboat', icon:'⛵',badge:'badge-sail',     hull:'#5b21b6'},
-  {type:'other',    label:'Vessel',   icon:'🚤',badge:'badge-other',    hull:'#475569'},
-];
 
-let vessels={}, ws=null, nearestMmsi=null, leafletMarkers={}, map, msgTotal=0;
 
-function dbg(msg){
-  const el=document.getElementById('debug');
-  if(!el)return;
-  const line=document.createElement('div');
-  line.textContent=new Date().toLocaleTimeString()+' '+msg;
-  el.appendChild(line);
-  el.scrollTop=el.scrollHeight;
-}
 
-function haversineNm(a,b,c,d){const R=3440.065,dL=(c-a)*Math.PI/180,dl=(d-b)*Math.PI/180,x=Math.sin(dL/2)**2+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dl/2)**2;return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));}
-function typeFromCode(tc){tc=parseInt(tc)||0;if(tc>=70&&tc<80)return'cargo';if(tc>=80&&tc<90)return'tanker';if(tc>=60&&tc<70)return'passenger';if([21,22,31,32,52].includes(tc))return'tug';if(tc>=36&&tc<40)return'sail';return'other';}
+
+
+
 function vtype(v){return VTYPES.find(t=>t.type===v.type)||VTYPES[5];}
-function findNearest(){let best=null,min=Infinity;Object.values(vessels).forEach(v=>{if(v.lat==null)return;const d=haversineNm(PIN.lat,PIN.lon,v.lat,v.lon);if(d<min){min=d;best=v;}});return best?{vessel:best,dist:min}:null;}
 
-function handleAISMessage(raw){
+
+
+
+
+
+
+
+
+
+
+
+
+
+async function loadWeather(){
   try{
-    const msg=JSON.parse(raw);
-    msgTotal++;
-    const msgType=msg.MessageType||'';
-    const meta=msg.MetaData||{};
-    const mmsi=String(meta.MMSI||'');
-    if(!mmsi)return;
-    if(msgTotal<=20||msgTotal%100===0) dbg(`#${msgTotal} ${msgType} mmsi=${mmsi} name="${(meta.ShipName||'').trim()}"`);
-
-    if(msgType==='PositionReport'){
-      const pos=msg.Message?.PositionReport||{};
-      const lon=pos.Longitude, lat=pos.Latitude;
-      if(lon==null||lat==null)return;
-      const prev=vessels[mmsi];
-      let heading=prev?.heading||'W→E';
-      if(prev?.lon!=null) heading=lon>prev.lon?'W→E':'E→W';
-      else if(pos.TrueHeading!=null&&pos.TrueHeading<360) heading=pos.TrueHeading<180?'W→E':'E→W';
-      vessels[mmsi]={mmsi,name:meta.ShipName?.trim()||prev?.name||`MMSI …${mmsi.slice(-4)}`,type:prev?.type||typeFromCode(meta.ShipType),heading,speed:pos.Sog??0,lon,lat};
-      document.getElementById('last-update').textContent='updated '+new Date().toLocaleTimeString();
-      updateMarkers();
-    } else if(msgType==='ShipStaticData'){
-      const s=msg.Message?.ShipStaticData||{};
-      const name=(s.Name||meta.ShipName||'').trim();
-      const tc=s.Type??meta.ShipType??0;
-      if(vessels[mmsi]){if(name)vessels[mmsi].name=name;vessels[mmsi].type=typeFromCode(tc);updateMarkers();}
-      else vessels[mmsi]={mmsi,name:name||`MMSI …${mmsi.slice(-4)}`,type:typeFromCode(tc),heading:'W→E',speed:0,lon:null,lat:null};
-    }
-  }catch(e){dbg('parse error: '+e.message);}
-}
-
-function vesselIcon(v,isNearest){
-  const info=vtype(v);
-  const sz=isNearest?36:28;
-  const color=isNearest?'#ef4444':info.hull;
-  const ring=isNearest?`<circle cx="18" cy="18" r="16" fill="none" stroke="#ef4444" stroke-width="1.5" opacity="0.3"/>`:'';
-  const flip=v.heading==='E→W'?`transform="scale(-1,1) translate(-36,0)"`:'';
-  const arrow=`<g ${flip}><path d="M18,3 L30,28 Q18,22 6,28 Z" fill="${color}" opacity="0.95"/><path d="M18,3 L30,28 Q18,22 6,28 Z" fill="none" stroke="white" stroke-width="0.8" opacity="0.6"/></g>`;
-  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${sz}" height="${sz}" viewBox="0 0 36 36">${ring}${arrow}</svg>`;
-  return L.divIcon({html:svg,className:'',iconSize:[sz,sz],iconAnchor:[sz/2,sz/2]});
-}
-
-function updateMarkers(){
-  const nearest=findNearest(); nearestMmsi=nearest?.vessel?.mmsi;
-  const active=Object.values(vessels).filter(v=>v.lat!=null&&v.lon!=null);
-  Object.keys(leafletMarkers).forEach(mmsi=>{
-    if(!vessels[mmsi]||vessels[mmsi].lat==null){map.removeLayer(leafletMarkers[mmsi]);delete leafletMarkers[mmsi];}
-  });
-  active.forEach(v=>{
-    const isNearest=v.mmsi===nearestMmsi, icon=vesselIcon(v,isNearest);
-    if(leafletMarkers[v.mmsi]){
-      leafletMarkers[v.mmsi].setLatLng([v.lat,v.lon]).setIcon(icon);
-    } else {
-      const m=L.marker([v.lat,v.lon],{icon}).addTo(map);
-      m.bindTooltip(()=>{
-        const cur=vessels[v.mmsi]||v;
-        return `<b>${cur.name}</b>Type: ${vtype(cur).label}<br>Heading: ${cur.heading}<br>Speed: ${(cur.speed||0).toFixed(1)} kn<br>MMSI: ${v.mmsi}`;
-      },{sticky:true,opacity:1,direction:'top'});
-      m.on('click',()=>map.panTo([v.lat,v.lon]));
-      leafletMarkers[v.mmsi]=m;
-    }
-  });
-  updatePanel(nearest); renderList();
-  document.getElementById('vessel-count').textContent=active.length;
-  document.getElementById('vlist-sub').textContent=`${active.length} vessel${active.length!==1?'s':''}`;
-}
-
-function updatePanel(nearest){
-  if(!nearest){
-    ['cp-name','cp-type','cp-heading','cp-speed','cp-dist','cp-mmsi'].forEach(id=>document.getElementById(id).textContent='—');
-    document.getElementById('nearest-dist').textContent='—';
-    document.getElementById('nearest-name').textContent='to your pin';
-    document.getElementById('cp-link').style.display='none';
-    return;
+    // NWS points API for canal location
+    const ptRes = await fetch('https://api.weather.gov/points/41.7351,-70.6266');
+    const ptData = await ptRes.json();
+    const forecastUrl = ptData.properties.forecast;
+    const fRes = await fetch(forecastUrl);
+    const fData = await fRes.json();
+    const period = fData.properties.periods[0];
+    const temp = period.temperature;
+    const unit = period.temperatureUnit;
+    const short = period.shortForecast;
+    document.getElementById('wx-val').textContent = `${temp}°${unit} ${short}`;
+    document.getElementById('wx-sub').textContent = period.name + ' · NWS';
+  } catch(e){
+    document.getElementById('wx-val').textContent = '—';
+    document.getElementById('wx-sub').textContent = 'unavailable';
   }
-  const{vessel:v,dist}=nearest;
-  document.getElementById('cp-name').textContent=v.name;
-  document.getElementById('cp-type').textContent=vtype(v).label;
-  document.getElementById('cp-heading').textContent=v.heading;
-  document.getElementById('cp-speed').textContent=(v.speed||0).toFixed(1)+' kn';
-  document.getElementById('cp-dist').textContent=dist.toFixed(2)+' nm';
-  document.getElementById('cp-mmsi').textContent=v.mmsi;
-  document.getElementById('nearest-dist').textContent=dist.toFixed(2)+' nm';
-  document.getElementById('nearest-name').textContent=v.name;
-  const lnk=document.getElementById('cp-link');
-  lnk.href=`https://www.marinetraffic.com/en/ais/details/ships/mmsi:${v.mmsi}`;
-  lnk.style.display='block';
 }
 
-function renderList(){
-  const list=Object.values(vessels).filter(v=>v.lat!=null&&v.lon!=null);
-  const cards=document.getElementById('vessel-cards');
-  if(!list.length){cards.innerHTML='<div class="empty">Connected — waiting for vessels…</div>';return;}
-  cards.innerHTML=list.map(v=>{
-    const info=vtype(v), isNearest=v.mmsi===nearestMmsi;
-    return `<div class="vc${isNearest?' nearest':''}" onclick="map.panTo([${v.lat},${v.lon}])">
-      <div class="vc-icon">${info.icon}</div>
-      <div class="vc-info"><div class="vc-name">${v.name}</div><div class="vc-meta">${v.heading} · ${(v.speed||0).toFixed(1)} kn</div></div>
-      <div class="vc-right">${isNearest?'<span class="badge badge-nearest">nearest</span>':`<span class="badge ${info.badge}">${info.label}</span>`}<span class="badge badge-speed">${(v.speed||0).toFixed(1)} kn</span></div>
-    </div>`;
-  }).join('');
+async function loadWind(){
+  try{
+    // NOAA NDBC buoy BUZM3 - Buzzards Bay
+    const res = await fetch('https://www.ndbc.noaa.gov/data/realtime2/BUZM3.txt');
+    const text = await res.text();
+    const lines = text.trim().split('\n');
+    // Line 0 is headers, line 1 is units, line 2 is most recent data
+    const headers = lines[0].replace(/^#\s*/,'').trim().split(/\s+/);
+    const values  = lines[2].trim().split(/\s+/);
+    const row = {};
+    headers.forEach((h,i) => row[h] = values[i]);
+
+    const wdirIdx = headers.indexOf('WDIR');
+    const wspdIdx = headers.indexOf('WSPD');
+    const wgstIdx = headers.indexOf('GST');
+
+    const wdir = parseFloat(row['WDIR']);
+    const wspd = parseFloat(row['WSPD']); // m/s
+    const wgst = parseFloat(row['GST']);  // m/s
+
+    if(isNaN(wspd)) throw new Error('no wind data');
+
+    // Convert m/s to knots
+    const kts = (wspd * 1.944).toFixed(0);
+    const gstKts = isNaN(wgst) ? null : (wgst * 1.944).toFixed(0);
+
+    // Convert degrees to cardinal
+    const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+    const card = isNaN(wdir) ? '—' : dirs[Math.round(wdir/22.5)%16];
+
+    document.getElementById('wind-val').textContent = `${card} ${kts} kn`;
+    document.getElementById('wind-sub').textContent = gstKts ? `gusts to ${gstKts} kn` : 'Buzzards Bay buoy';
+  } catch(e){
+    document.getElementById('wind-val').textContent = '—';
+    document.getElementById('wind-sub').textContent = 'unavailable';
+  }
 }
 
 async function loadTides(){
@@ -339,10 +260,11 @@ async function loadTides(){
 }
 
 async function loadCurrents(){
+  // Use the same 6-min tide predictions to interpolate current height
   try{
-    const res=await fetch(`${NOAA}?station=${CURR_ST}&product=currents_predictions&time_zone=lst_ldt&interval=MAX_SLACK&units=english&application=ccc&format=json&begin_date=${TODAY}&end_date=${TODAY}`);
+    const res=await fetch(`${NOAA}?station=${TIDE_ST}&product=predictions&datum=MLLW&time_zone=lst_ldt&interval=6&units=english&application=ccc&format=json&begin_date=${TODAY}&end_date=${TODAY}`);
     const data=await res.json();
-    updateCurrentCard(data?.current_predictions?.cp||[]);
+    updateCurrentCard(data?.predictions||[]);
   }catch(e){}
 }
 
@@ -356,23 +278,31 @@ function updateTideCard(hilo){
   document.getElementById('tide-sub').textContent=`${isHigh?'High':'Low'} at ${ts}`;
 }
 
-function updateCurrentCard(preds){
-  if(!preds.length)return;
+function updateCurrentCard(pts){
+  // pts = 6-minute tide predictions; interpolate to find height right now
+  if(!pts.length)return;
   const now=new Date();
-  const sorted=preds.slice().sort((a,b)=>new Date(a.t)-new Date(b.t));
-  const past=sorted.filter(p=>new Date(p.t)<=now);
-  const cur=past[past.length-1]||sorted[0];
-  const next=sorted.find(p=>new Date(p.t)>now);
-  const type=cur.type||'';
-  const isFlood=type.includes('flood'), isEbb=type.includes('ebb');
-  const spd=parseFloat(cur.velocity||cur.Speed||0);
-  const cls=isFlood?'flood':isEbb?'ebb':'slack';
-  const arrow=isFlood?'→':isEbb?'←':'⇌';
-  document.getElementById('current-val').innerHTML=`<span class="${cls}">${arrow} ${spd>0?spd.toFixed(1)+' kn':(isFlood?'Flood':isEbb?'Ebb':'Slack')}</span>`;
-  if(next){const ts=new Date(next.t).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});document.getElementById('current-sub').textContent=`Next: ${(next.type||'').replace('max ','')} ${ts}`;}
+  const sorted=pts.slice().sort((a,b)=>new Date(a.t)-new Date(b.t));
+  const before=sorted.filter(p=>new Date(p.t)<=now);
+  const after=sorted.filter(p=>new Date(p.t)>now);
+  let ht;
+  if(before.length&&after.length){
+    const p1=before[before.length-1], p2=after[0];
+    const t1=new Date(p1.t), t2=new Date(p2.t);
+    const frac=(now-t1)/(t2-t1);
+    ht=parseFloat(p1.v)+(parseFloat(p2.v)-parseFloat(p1.v))*frac;
+  } else if(before.length){
+    ht=parseFloat(before[before.length-1].v);
+  } else {
+    ht=parseFloat(after[0].v);
+  }
+  const isHigh=ht>3.5; // rough threshold
+  document.getElementById('current-val').innerHTML=`<span class="${isHigh?'flood':'ebb'}">${ht.toFixed(1)} ft</span>`;
+  document.getElementById('current-sub').textContent='current height';
+  // Update every minute
+  setTimeout(()=>updateCurrentCard(pts), 60000);
 }
 
-let _tidePoints = [];
 function drawTideChart(points){
   _tidePoints = points;
   const canvas=document.getElementById('tide-chart');
@@ -427,44 +357,15 @@ function drawFallbackChart(){
   drawTideChart(pts);
 }
 
-function initMap(){
-  map=L.map('map',{zoomControl:true,center:[41.762,-70.555],zoom:12});
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{attribution:'© OpenStreetMap © CARTO',maxZoom:19}).addTo(map);
-  const pinSvg=`<svg xmlns="http://www.w3.org/2000/svg" width="18" height="24" viewBox="0 0 18 24"><circle cx="9" cy="9" r="7" fill="#ef4444" opacity="0.9"/><circle cx="9" cy="9" r="3.5" fill="white"/><line x1="9" y1="16" x2="9" y2="24" stroke="#ef4444" stroke-width="2"/></svg>`;
-  L.marker([PIN.lat,PIN.lon],{icon:L.divIcon({html:pinSvg,className:'',iconSize:[18,24],iconAnchor:[9,24]})}).addTo(map).bindTooltip('Your pin');
-}
 
-function connectAIS(){
-  dbg('Connecting to AISstream…');
-  ws=new WebSocket('wss://stream.aisstream.io/v0/stream');
-  ws.onopen=()=>{
-    ws.send(JSON.stringify({APIKey:AIS_KEY,BoundingBoxes:[[[VIEW.minLat,VIEW.minLon],[VIEW.maxLat,VIEW.maxLon]]],FilterMessageTypes:['PositionReport','ShipStaticData']}));
-    document.getElementById('status-dot').className='dot live';
-    document.getElementById('status-text').textContent='live';
-    dbg('Connected and subscribed');
-  };
-  ws.onmessage=(evt)=>{
-    if(evt.data instanceof Blob) evt.data.text().then(handleAISMessage);
-    else handleAISMessage(evt.data);
-  };
-  ws.onerror=()=>{
-    document.getElementById('status-dot').className='dot error';
-    document.getElementById('status-text').textContent='error';
-    dbg('WebSocket error');
-  };
-  ws.onclose=(e)=>{
-    dbg(`Closed code:${e.code} — reconnecting in 5s…`);
-    document.getElementById('status-dot').className='dot connecting';
-    document.getElementById('status-text').textContent='reconnecting…';
-    setTimeout(connectAIS, 5000);
-  };
-}
+
+
 
 // Boot
-initMap();
 loadTides();
 loadCurrents();
-connectAIS();
+loadWind();
+loadWeather();
 </script>
 </body>
 </html>
