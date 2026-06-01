@@ -141,8 +141,8 @@ html,body{height:100%;font-family:'Inter',sans-serif;background:#f4f6f9;color:#1
 <script type="text/javascript">
     var width="100%";
     var height="560";
-    var latitude="41.762";
-    var longitude="-70.555";
+    var latitude="41.7489";
+    var longitude="-70.5615";
     var zoom="14";
     var names=true;
 </script>
@@ -208,43 +208,49 @@ async function loadWeather(){
   }
 }
 
-async function loadWind(){
+async function loadNWS(){
   try{
-    // NOAA NDBC buoy BUZM3 - Buzzards Bay
-    const res = await fetch('https://www.ndbc.noaa.gov/data/realtime2/BUZM3.txt');
-    const text = await res.text();
-    const lines = text.trim().split('\n');
-    // Line 0 is headers, line 1 is units, line 2 is most recent data
-    const headers = lines[0].replace(/^#\s*/,'').trim().split(/\s+/);
-    const values  = lines[2].trim().split(/\s+/);
-    const row = {};
-    headers.forEach((h,i) => row[h] = values[i]);
+    // Step 1: get grid point
+    const ptRes = await fetch('https://api.weather.gov/points/41.7351,-70.6266', {
+      headers: {'User-Agent': 'CapeCodeCanalTracker/1.0'}
+    });
+    const ptData = await ptRes.json();
+    const forecastHourlyUrl = ptData.properties.forecastHourly;
+    const forecastUrl = ptData.properties.forecast;
 
-    const wdirIdx = headers.indexOf('WDIR');
-    const wspdIdx = headers.indexOf('WSPD');
-    const wgstIdx = headers.indexOf('GST');
+    // Step 2: fetch both forecasts in parallel
+    const [hourlyRes, forecastRes] = await Promise.all([
+      fetch(forecastHourlyUrl, {headers:{'User-Agent':'CapeCodeCanalTracker/1.0'}}),
+      fetch(forecastUrl, {headers:{'User-Agent':'CapeCodeCanalTracker/1.0'}})
+    ]);
+    const hourlyData = await hourlyRes.json();
+    const forecastData = await forecastRes.json();
 
-    const wdir = parseFloat(row['WDIR']);
-    const wspd = parseFloat(row['WSPD']); // m/s
-    const wgst = parseFloat(row['GST']);  // m/s
+    // Wind from first hourly period
+    const hour = hourlyData.properties.periods[0];
+    const windSpd = hour.windSpeed; // e.g. "12 mph"
+    const windDir = hour.windDirection; // e.g. "SW"
+    // Convert mph to knots
+    const mph = parseFloat(windSpd);
+    const kts = isNaN(mph) ? windSpd : `${(mph * 0.868976).toFixed(0)} kn`;
+    document.getElementById('wind-val').textContent = `${windDir} ${kts}`;
+    document.getElementById('wind-sub').textContent = 'NWS · Bourne MA';
 
-    if(isNaN(wspd)) throw new Error('no wind data');
+    // Weather from first forecast period
+    const period = forecastData.properties.periods[0];
+    const temp = period.temperature;
+    const short = period.shortForecast;
+    document.getElementById('wx-val').textContent = `${temp}°F`;
+    document.getElementById('wx-sub').textContent = short;
 
-    // Convert m/s to knots
-    const kts = (wspd * 1.944).toFixed(0);
-    const gstKts = isNaN(wgst) ? null : (wgst * 1.944).toFixed(0);
-
-    // Convert degrees to cardinal
-    const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
-    const card = isNaN(wdir) ? '—' : dirs[Math.round(wdir/22.5)%16];
-
-    document.getElementById('wind-val').textContent = `${card} ${kts} kn`;
-    document.getElementById('wind-sub').textContent = gstKts ? `gusts to ${gstKts} kn` : 'Buzzards Bay buoy';
   } catch(e){
     document.getElementById('wind-val').textContent = '—';
     document.getElementById('wind-sub').textContent = 'unavailable';
+    document.getElementById('wx-val').textContent = '—';
+    document.getElementById('wx-sub').textContent = 'unavailable';
   }
 }
+
 
 async function loadTides(){
   try{
@@ -364,8 +370,7 @@ function drawFallbackChart(){
 // Boot
 loadTides();
 loadCurrents();
-loadWind();
-loadWeather();
+loadNWS();
 </script>
 </body>
 </html>
